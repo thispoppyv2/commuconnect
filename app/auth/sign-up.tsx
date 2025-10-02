@@ -82,12 +82,11 @@ export default function Auth() {
       // Step 2: Create user profile
       if (user) {
         const { error: profileError } = await supabase.from('user_profiles').upsert({
-          id: user.id,
+          auth_user_id: user.id,
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           location: location.trim() || null,
           phone: phone.trim() || null,
-          email: email,
         });
 
         if (profileError) {
@@ -96,11 +95,13 @@ export default function Auth() {
             'Profile Error',
             'Account created but profile setup failed. You can update your profile later.'
           );
+          return;
         }
       }
 
       if (!session) {
         Alert.alert('Verification Required', 'Please check your inbox for email verification!');
+        router.replace('/(tabs)');
       } else {
         Alert.alert('Success', 'Account created successfully!');
         router.replace('/(tabs)');
