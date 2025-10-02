@@ -22,7 +22,17 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: colorScheme === 'dark' ? '#000000' : '#ffffff',
+          },
+          headerTintColor: colorScheme === 'dark' ? '#ffffff' : '#000000',
+
+          contentStyle: {
+            backgroundColor: colorScheme === 'dark' ? '#000000' : '#ffffff',
+          },
+        }}>
         <Stack.Screen
           name="(tabs)"
           options={{
@@ -32,7 +42,7 @@ export default function RootLayout() {
             headerBackVisible: false,
             headerShadowVisible: false,
             headerTitle: () => (
-              <View className="ml-1.5 w-full justify-start">
+              <View className="-ml-1 w-full justify-start">
                 <Text variant="h2" className="mt-2 border-0">
                   {Constants.expoConfig?.name}
                 </Text>
@@ -53,12 +63,19 @@ export default function RootLayout() {
             ),
           }}
         />
-
         <Stack.Screen
           name="settings/notif"
           options={{
             title: 'Notifications',
             headerLargeTitle: false,
+            headerBackButtonDisplayMode: 'minimal',
+          }}
+        />
+        <Stack.Screen
+          name="reports/[id]/index"
+          options={{
+            headerShown: true,
+            title: '',
             headerBackButtonDisplayMode: 'minimal',
           }}
         />

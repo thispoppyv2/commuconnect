@@ -42,7 +42,7 @@ export default function Auth() {
     }
 
     Alert.alert('Success! You are now signed in.');
-    router.push('/');
+    router.replace('/');
     setLoading(false);
   }
 
@@ -74,7 +74,7 @@ export default function Auth() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'Authentication',
+          title: 'Welcome Back!',
           headerLargeTitle: true,
           headerBackVisible: true,
         }}
@@ -102,10 +102,12 @@ export default function Auth() {
         <Button disabled={loading} onPress={() => signInWithEmail()}>
           <Text>Sign in</Text>
         </Button>
-      </View>
-      <View className="self-stretch py-1">
-        <Button disabled={loading} onPress={() => signUpWithEmail()}>
-          <Text>Sign Up</Text>
+        <Button
+          className="mt-2"
+          variant="secondary"
+          disabled={loading}
+          onPress={() => router.push('/auth/sign-up')}>
+          <Text>Create an Account</Text>
         </Button>
       </View>
     </View>

@@ -4,12 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { supabase } from '@/lib/supabase';
-import { User } from '@supabase/supabase-js';
+
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AtSignIcon, Building, PhoneCall } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useState } from 'react';
-import { type ImageStyle, ScrollView, View } from 'react-native';
+import { ActivityIndicator, type ImageStyle, ScrollView, View } from 'react-native';
+import { User } from '@supabase/supabase-js';
 
 type Profile = {
   first_name: string | null;
@@ -61,17 +62,23 @@ export default function Screen() {
     profile?.first_name || profile?.last_name
       ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
       : 'Username';
-
+  if (user === null || profile === null) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <ActivityIndicator />
+      </View>
+    );
+  }
   return (
     <>
       <ScrollView className="mx-2">
         <View>
           <Avatar
             alt={user?.user_metadata?.username || 'User Avatar'}
-            className="m-auto mb-2 flex size-36 border-2 border-background web:border-0 web:ring-2 web:ring-background">
+            className="m-auto mb-2 flex size-36 scale-100 border-2 border-background web:border-0 web:ring-2 web:ring-background">
             <AvatarImage source={{ uri: user?.user_metadata?.avatar_url }} />
             <AvatarFallback>
-              <Text>{user?.email?.charAt(0).toUpperCase()}</Text>
+              <Text className="text-2xl font-bold">{user?.email?.charAt(0).toUpperCase()}</Text>
             </AvatarFallback>
           </Avatar>
           <Card className="flex gap-1">
@@ -110,6 +117,9 @@ export default function Screen() {
             </View>
           </Card>
         </View>
+        <Text variant="h3" className="mt-5">
+          Menu
+        </Text>
         <View>
           <Button
             className="m-auto my-1 w-full"

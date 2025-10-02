@@ -21,10 +21,24 @@ const IMAGE_STYLE: ImageStyle = {
   borderRadius: 8,
 };
 
+type Announcement = {
+  id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+  user_profiles:
+    | {
+        first_name: string | null;
+        last_name: string | null;
+      }[]
+    | null;
+};
+
 export default function Screen() {
   const { colorScheme } = useColorScheme();
   const unreadNotifications = 3; // Example unread notifications count
   const [user, setUser] = useState<User | null>(null);
+  const [pinnedAnnouncement, setPinnedAnnouncement] = useState<Announcement | null>(null);
 
   useFocusEffect(() => {
     const fetchUser = async () => {
@@ -38,15 +52,36 @@ export default function Screen() {
         router.replace('/');
       }
     };
+
+    const fetchPinnedAnnouncement = async () => {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('id, title, body, created_at, user_profiles(first_name, last_name)')
+        .gt('pinned_until', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code !== 'PGRST116') {
+          // Not a "no rows returned" error
+          console.error('Error fetching pinned announcement:', error);
+        }
+        setPinnedAnnouncement(null);
+      } else {
+        setPinnedAnnouncement(data as Announcement);
+      }
+    };
+
     fetchUser();
+    fetchPinnedAnnouncement();
   });
+
   return (
     <>
       <ScrollView className="mx-2 flex flex-1">
         {user ? (
-          <Text className="mb-2 text-center text-sm text-foreground/70">
-            Welcome, {user.user_metadata?.username || 'User'}!
-          </Text>
+          <Text className="mb-2 text-center text-sm text-foreground/70">Welcome bacl!</Text>
         ) : (
           <Card className="flex flex-col gap-1 p-2">
             <Text variant="muted">You can sign up here!</Text>
@@ -100,17 +135,31 @@ export default function Screen() {
 
         <View className="">
           <Text className="mt-4 text-lg font-semibold">Pinned Announcement</Text>
-          <Card className="flex flex-col gap-1 p-2">
-            <Text className="font-semibold">Community Meeting</Text>
-            <Text className="text-sm text-foreground/70">Sept 30, 2023</Text>
-            <Text className="text-sm text-foreground/70">
-              Stay tuned for the latest updates and announcements from the barangay.
-            </Text>
-          </Card>
+          {pinnedAnnouncement ? (
+            <Card className="flex flex-col gap-1 p-2">
+              <Text className="font-semibold">{pinnedAnnouncement.title}</Text>
+              <Text className="text-sm text-foreground/70">
+                {new Date(pinnedAnnouncement.created_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </Text>
+              <Text className="text-sm text-foreground/70">
+                {pinnedAnnouncement.body || 'No details provided.'}
+              </Text>
+            </Card>
+          ) : (
+            <Card className="flex flex-col gap-1 p-2">
+              <Text className="text-center text-sm text-foreground/70">
+                No pinned announcements at the moment.
+              </Text>
+            </Card>
+          )}
         </View>
         <View>
           <Text className="mt-4 text-lg font-semibold">Recent Reports</Text>
-          <ReportList />
+          <ReportList limit={2} />
           <Button
             onPress={() => {
               router.push('/(tabs)/reports');

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useColorScheme } from 'nativewind';
-import { ScrollView, View, type ImageStyle } from 'react-native';
+import { View, type ImageStyle } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { CirclePlus } from 'lucide-react-native';
 import { router, Stack } from 'expo-router';
@@ -23,10 +23,9 @@ export default function Screen() {
     <>
       <Stack.Screen options={{ headerShown: true, title: 'Report' }} />
 
-      <ScrollView className="mx-2">
-        <ReportList />
-      </ScrollView>
-      <View className="fixed bottom-24 left-0 right-0 m-2">
+      <ReportList />
+
+      <View className="android:bottom-32 fixed bottom-24 left-0 right-0 m-2">
         <Button
           onPress={() => router.push('/reports/add')}
           className="w-full flex-row items-center justify-center gap-2">

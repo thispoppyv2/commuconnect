@@ -1,11 +1,4 @@
 import { TabLayout } from '@/components/tabs';
-import '@/global.css';
-
-import { NAV_THEME } from '@/lib/theme';
-import { ThemeProvider } from '@react-navigation/native';
-import { PortalHost } from '@rn-primitives/portal';
-import { StatusBar } from 'expo-status-bar';
-import { useColorScheme } from 'nativewind';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -13,15 +6,5 @@ export {
 } from 'expo-router';
 
 export default function RootLayout() {
-  const { colorScheme } = useColorScheme();
-
-  return (
-    <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-
-      <TabLayout />
-
-      <PortalHost />
-    </ThemeProvider>
-  );
+  return <TabLayout />;
 }
