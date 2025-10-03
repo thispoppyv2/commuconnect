@@ -1,38 +1,77 @@
-import { Button } from '@/components/ui/button';
 import { useColorScheme } from 'nativewind';
-import { View, type ImageStyle } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { CirclePlus } from 'lucide-react-native';
-import { router, Stack } from 'expo-router';
 import { ReportList } from '@/components/report-list';
-
-const LOGO = {
-  light: require('@/assets/images/react-native-reusables-light.png'),
-  dark: require('@/assets/images/react-native-reusables-dark.png'),
-};
-
-const IMAGE_STYLE: ImageStyle = {
-  height: 76,
-  width: 76,
-};
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import type { User } from '@supabase/supabase-js';
+import { View, Pressable } from 'react-native';
+import { Input } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function Screen() {
   const { colorScheme } = useColorScheme();
+  const { isDefaultMine } = useLocalSearchParams<{ isDefaultMine?: string }>();
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfileId, setUserProfileId] = useState<string | null>(null);
+  const [showMyReports, setShowMyReports] = useState(isDefaultMine === 'true');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+      setUser(currentUser);
+
+      // Fetch user_profile id
+      if (currentUser?.id) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', currentUser.id)
+          .single();
+
+        setUserProfileId(profileData?.id || null);
+      }
+    };
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    // Update showMyReports when the param changes
+    if (isDefaultMine === 'true') {
+      setShowMyReports(true);
+    }
+  }, [isDefaultMine]);
 
   return (
-    <>
-      <Stack.Screen options={{ headerShown: true, title: 'Report' }} />
-
-      <ReportList />
-
-      <View className="android:bottom-32 fixed bottom-24 left-0 right-0 m-2">
-        <Button
-          onPress={() => router.push('/reports/add')}
-          className="w-full flex-row items-center justify-center gap-2">
-          <CirclePlus size={16} color={colorScheme === 'light' ? 'white' : 'black'} />
-          <Text>Add a Report</Text>
-        </Button>
+    <View className="flex-1">
+      {/* Search and Filter Bar */}
+      <View className="mb-2 border-b border-border bg-background p-4">
+        <Input
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search reports..."
+          className="w-full"
+        />
+        <Pressable
+          onPress={() => setShowMyReports(!showMyReports)}
+          className="mt-3 flex flex-row items-center gap-2">
+          <Checkbox
+            className="h-6 w-6"
+            checked={showMyReports}
+            onCheckedChange={setShowMyReports}
+          />
+          <Text className="text-sm">Show only my reports</Text>
+        </Pressable>
       </View>
-    </>
+
+      <ReportList
+        searchQuery={searchQuery}
+        showMyReports={showMyReports}
+        currentUserProfileId={userProfileId}
+      />
+    </View>
   );
 }

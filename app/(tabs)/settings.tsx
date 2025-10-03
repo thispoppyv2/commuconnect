@@ -18,6 +18,7 @@ type Profile = {
   phone: string | null;
   location: string | null;
   role: string | null;
+  profile_image: string | null;
 };
 
 const IMAGE_STYLE: ImageStyle = {
@@ -40,7 +41,7 @@ export default function Screen() {
       if (user) {
         const { data: profileData, error } = await supabase
           .from('user_profiles')
-          .select('first_name, last_name, phone, location, role')
+          .select('first_name, last_name, phone, location, role, profile_image')
           .eq('auth_user_id', user.id)
           .limit(1)
           .single();
@@ -76,7 +77,7 @@ export default function Screen() {
           <Avatar
             alt={user?.user_metadata?.username || 'User Avatar'}
             className="m-auto mb-2 flex size-36 scale-100 border-2 border-background web:border-0 web:ring-2 web:ring-background">
-            <AvatarImage source={{ uri: user?.user_metadata?.avatar_url }} />
+            <AvatarImage source={{ uri: profile.profile_image }} />
             <AvatarFallback>
               <Text className="text-2xl font-bold">{user?.email?.charAt(0).toUpperCase()}</Text>
             </AvatarFallback>
@@ -123,26 +124,10 @@ export default function Screen() {
         <View>
           <Button
             className="m-auto my-1 w-full"
-            disabled={!user}
-            onPress={() => {
-              supabase.auth.signOut();
-              router.push('/');
-            }}>
-            <Text>Logout</Text>
-          </Button>
-          <Button
-            className="m-auto my-1 w-full"
             onPress={() => {
               router.push('/settings/profile');
             }}>
             <Text>Edit Profile</Text>
-          </Button>
-          <Button
-            className="m-auto my-1 w-full"
-            onPress={() => {
-              router.push('/settings/settings-main');
-            }}>
-            <Text>Settings</Text>
           </Button>
         </View>
       </ScrollView>

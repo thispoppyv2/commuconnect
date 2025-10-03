@@ -43,8 +43,14 @@ export default function AddReportScreen() {
       ]);
 
       if (!alive) return;
-
-      setReporterId(userData.user?.id ?? null);
+      if (userData.user?.id) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('id')
+          .eq('auth_user_id', userData.user.id)
+          .single();
+        setReporterId(profileData?.id ?? null);
+      }
 
       if (categoryError) {
         console.error('Error fetching categories:', categoryError);
@@ -143,27 +149,6 @@ export default function AddReportScreen() {
     }
 
     return bytes;
-  };
-
-  const dataFrom64 = (base64String: string, contentType: string) => {
-    const base64Data = base64String.replace(/data:image\/jpeg;base64,/, '');
-    const byteCharacters = atob(base64Data);
-    const byteArrays = [];
-
-    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-      const slice = byteCharacters.slice(offset, offset + 512);
-
-      const byteNumbers = new Array(slice.length);
-      for (let i = 0; i < slice.length; i++) {
-        byteNumbers[i] = slice.charCodeAt(i);
-      }
-
-      const byteArray = new Uint8Array(byteNumbers);
-      byteArrays.push(byteArray);
-    }
-
-    const blob = new Blob(byteArrays, { type: contentType });
-    return blob;
   };
 
   const handleSubmit = async () => {

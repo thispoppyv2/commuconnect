@@ -22,14 +22,24 @@ export function TabLayout() {
     };
     fetchUser();
   });
-  const backgroundColor = scheme === 'dark' ? '#000000' : '#ffffff';
+  const backgroundColor = scheme === 'dark' ? '#000000' : '#FFFFFF';
+  const tintColor = scheme === 'dark' ? '#4CB9E8' : '#EAFBFF';
+  const tintColor2 = scheme === 'light' ? '#25A6D9' : '#EAFBFF';
+
+  const iconColor = scheme === 'dark' ? '#000000' : '#0A0A0A';
+
   return (
-    <NativeTabs minimizeBehavior="onScrollDown" disableTransparentOnScrollEdge>
+    <NativeTabs
+      indicatorColor={tintColor}
+      tintColor={tintColor2}
+      backgroundColor={backgroundColor}
+      shadowColor={iconColor}
+      minimizeBehavior="onScrollDown">
       <NativeTabs.Trigger
-        name="index"
         options={{
           backgroundColor: backgroundColor,
-        }}>
+        }}
+        name="index">
         <Label>Home</Label>
         {Platform.select({
           ios: <Icon sf="house" />,

@@ -2,7 +2,7 @@ import { useLocalSearchParams, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, ScrollView } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
 
@@ -79,29 +79,24 @@ export default function AnnouncementDetailScreen() {
         }}
       />
       <ScrollView className="flex-1 p-4">
-        <Card className="w-full">
-          <CardHeader>
-            <View className="flex flex-row items-start justify-between">
-              <CardTitle className="flex-1 text-2xl">{announcement.title}</CardTitle>
-              {isPinned && (
-                <Badge variant="default" className="ml-2">
-                  <Text className="text-xs">Pinned</Text>
-                </Badge>
-              )}
-            </View>
-            <Text className="pt-1 text-sm text-muted-foreground">
-              {new Date(announcement.created_at).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}{' '}
-              • {authorName}
-            </Text>
-          </CardHeader>
-          <CardContent>
-            <Text className="text-base leading-6">{announcement.body || 'No content.'}</Text>
-          </CardContent>
-        </Card>
+        <View className="flex flex-row items-start justify-between">
+          <CardTitle className="flex-1 text-2xl">{announcement.title}</CardTitle>
+          {isPinned && (
+            <Badge variant="default" className="ml-2">
+              <Text className="text-xs">Pinned</Text>
+            </Badge>
+          )}
+        </View>
+        <Text className="pt-1 text-sm text-muted-foreground">
+          {new Date(announcement.created_at).toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}{' '}
+          • {authorName}
+        </Text>
+
+        <Text className="text-base leading-6">{announcement.body || 'No content.'}</Text>
       </ScrollView>
     </View>
   );

@@ -27,6 +27,7 @@ export type Report = {
   status: string;
   images: string[] | null;
   created_at: string;
+  reporter_id: string | null;
   report_timelines?: TimelineEntry[] | null;
   timeline?: TimelineEntry[];
 };
@@ -39,7 +40,19 @@ const IMAGE_STYLE: ImageStyle = {
   borderWidth: 1,
 };
 
-export function ReportList({ limit }: { limit?: number }) {
+export function ReportList({
+  limit,
+  isScrollable = true,
+  searchQuery = '',
+  showMyReports = false,
+  currentUserProfileId,
+}: {
+  limit?: number;
+  isScrollable?: boolean;
+  searchQuery?: string;
+  showMyReports?: boolean;
+  currentUserProfileId?: string | null;
+}) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,10 +61,18 @@ export function ReportList({ limit }: { limit?: number }) {
     let query = supabase
       .from('reports')
       .select(
-        'id, title, description, status, images, created_at, report_timelines(id, status, description, created_at)'
+        'id, title, description, status, images, created_at, reporter_id, report_timelines(id, status, description, created_at)'
       )
-      .order('created_at', { ascending: false })
-      .limit(limit ?? 1000);
+      .order('created_at', { ascending: false });
+    if (limit) {
+      query = supabase
+        .from('reports')
+        .select(
+          'id, title, description, status, images, created_at, reporter_id, report_timelines(id, status, description, created_at)'
+        )
+        .order('created_at', { ascending: false })
+        .limit(limit);
+    }
 
     const { data, error } = await query;
 
@@ -101,14 +122,36 @@ export function ReportList({ limit }: { limit?: number }) {
     return <ActivityIndicator />;
   }
 
-  const renderReport = ({ item: report }: { item: Report }) => {
+  // Client-side filtering
+  const filteredReports = reports.filter((report) => {
+    // Filter by search query
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      const titleMatch = report.title.toLowerCase().includes(searchLower);
+      const descriptionMatch = report.description?.toLowerCase().includes(searchLower) || false;
+      if (!titleMatch && !descriptionMatch) {
+        return false;
+      }
+    }
+
+    // Filter by current user's reports
+    if (showMyReports && currentUserProfileId) {
+      if (report.reporter_id !== currentUserProfileId) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const renderReport = (report: Report) => {
     const statusLabel = (report.timeline?.[0]?.status ?? report.status).replace(/_/g, ' ');
 
     return (
-      <Link className="" key={report.id} href={`/reports/${report.id}`} asChild>
+      <Link key={report.id} href={`/reports/${report.id}`} asChild>
         <Card className="flex w-full flex-col gap-1 p-2 transition active:scale-95">
           <View className="flex flex-row justify-between">
-            <Text className="font-semibold">{report.title}</Text>
+            <Text className="h-6 w-1/2 truncate font-semibold">{report.title}</Text>
             <Badge variant={'secondary'} className="w-maxS text-sm text-foreground/70">
               <Text className="capitalize">{statusLabel}</Text>
             </Badge>
@@ -121,7 +164,9 @@ export function ReportList({ limit }: { limit?: number }) {
             })}
           </Text>
           {report.description && (
-            <Text className="text-sm text-foreground/70">{report.description}</Text>
+            <Text className="h-6 w-full truncate text-sm text-foreground/70">
+              {report.description}
+            </Text>
           )}
           {report.images && report.images.length > 0 && (
             <View className="flex flex-row gap-1">
@@ -135,13 +180,27 @@ export function ReportList({ limit }: { limit?: number }) {
     );
   };
 
+  if (!isScrollable) {
+    return <View className="flex w-full flex-col gap-1">{filteredReports.map(renderReport)}</View>;
+  }
+
   return (
     <FlatList
-      data={reports}
-      renderItem={renderReport}
+      data={filteredReports}
+      renderItem={({ item }) => renderReport(item)}
       keyExtractor={(item) => item.id}
-      contentContainerClassName="flex w-full flex-col gap-1"
+      contentContainerClassName={`flex w-full flex-col gap-1 ${isScrollable ? 'px-2' : ''}`}
+      contentContainerStyle={{ paddingBottom: 200 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      ListEmptyComponent={
+        <View className="p-4">
+          <Text className="text-center text-foreground/70">
+            {searchQuery || showMyReports
+              ? 'No reports found matching your filters.'
+              : 'No reports yet.'}
+          </Text>
+        </View>
+      }
     />
   );
 }

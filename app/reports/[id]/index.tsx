@@ -2,8 +2,16 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { supabase } from '@/lib/supabase';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { Circle, CornerDownRight, X, Send, Reply } from 'lucide-react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  Circle,
+  CornerDownRight,
+  X,
+  Send,
+  Reply,
+  ListPlus,
+  FilePenIcon,
+} from 'lucide-react-native';
 import { colorScheme } from 'nativewind';
 import { useEffect, useState, useRef } from 'react';
 import {
@@ -14,10 +22,8 @@ import {
   Pressable,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
   Keyboard,
   Image,
-  Animated,
 } from 'react-native';
 import { ImageZoom } from '@likashefqet/react-native-image-zoom';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -29,6 +35,7 @@ type Report = {
   images: string[] | null;
   created_at: string;
   category: string | null;
+  reporter_id: string | null;
   categories: {
     name: string | null;
   };
@@ -61,6 +68,7 @@ type Comment = {
 
 export default function ReportPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [report, setReport] = useState<Report | null>(null);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -70,10 +78,11 @@ export default function ReportPage() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [shouldFocusInput, setShouldFocusInput] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const commentsRef = useRef<View>(null);
   const commentInputRef = useRef<TextInput>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!id) return;
@@ -84,6 +93,7 @@ export default function ReportPage() {
         { data: reportData, error: reportError },
         { data: timelineData, error: timelineError },
         { data: commentsData, error: commentsError },
+        { data: userData },
       ] = await Promise.all([
         supabase
           .from('reports')
@@ -100,7 +110,22 @@ export default function ReportPage() {
           .select('id, report_id, parent_comment_id, author_id, body, created_at')
           .eq('report_id', id)
           .order('created_at', { ascending: true }),
+        supabase.auth.getUser(),
       ]);
+
+      // Set current user
+
+      // Fetch user role
+      if (userData.user?.id) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('role , id')
+          .eq('auth_user_id', userData.user.id)
+          .single();
+        setUserRole(profileData?.role ?? null);
+        setCurrentUserId(profileData?.id ?? null);
+        console.log(profileData.role);
+      }
 
       let timelineEntries: TimelineEntry[] = [];
 
@@ -190,6 +215,9 @@ export default function ReportPage() {
       ? `${report.user_profiles.first_name || ''} ${report.user_profiles.last_name || ''}`.trim()
       : 'Anonymous';
 
+  const isReporter = currentUserId && report.reporter_id === currentUserId;
+  const isAdmin = userRole === 'admin';
+
   const organizeComments = () => {
     const topLevelComments = comments.filter((c) => !c.parent_comment_id);
     const commentMap = new Map<string, Comment[]>();
@@ -207,7 +235,7 @@ export default function ReportPage() {
   };
 
   const handleSubmitComment = async () => {
-    if (!newComment.trim() || !id) return;
+    if (!newComment.trim() || !id || !currentUserId) return;
 
     setSubmitting(true);
     const { data, error } = await supabase
@@ -216,6 +244,7 @@ export default function ReportPage() {
         report_id: id,
         body: newComment.trim(),
         parent_comment_id: replyingTo,
+        author_id: currentUserId,
       })
       .select('id, report_id, parent_comment_id, author_id, body, created_at')
       .single();
@@ -227,7 +256,7 @@ export default function ReportPage() {
       const { data: profileData } = await supabase
         .from('user_profiles')
         .select('id, first_name, last_name, profile_image')
-        .eq('id', data.author_id)
+        .eq('id', currentUserId)
         .single();
 
       const newCommentWithProfile = {
@@ -331,12 +360,30 @@ export default function ReportPage() {
           headerShown: true,
           title: report.title || 'Report Details',
           headerBackButtonDisplayMode: 'minimal',
+          headerRight: () => {
+            return (
+              <View className="w-maxs mx-1 flex flex-row items-center gap-2">
+                {isReporter ||
+                  (isAdmin && (
+                    <>
+                      <Pressable
+                        onPress={() => router.push(`/reports/${id}/edit`)}
+                        className="rounded-full p-1 hover:bg-muted/50 active:scale-95">
+                        <FilePenIcon color={colorScheme.get() === 'light' ? 'black' : 'white'} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => router.push(`/reports/${id}/add-timeline`)}
+                        className="rounded-full p-1 hover:bg-muted/50 active:scale-95">
+                        <ListPlus color={colorScheme.get() === 'light' ? 'black' : 'white'} />
+                      </Pressable>
+                    </>
+                  ))}
+              </View>
+            );
+          },
         }}
       />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={75}>
         <ScrollView ref={scrollViewRef} className="mx-2">
           <View className="flex-1">
             <View className="mt-2 flex w-full flex-row flex-wrap items-center justify-between">
@@ -447,7 +494,7 @@ export default function ReportPage() {
           <Text className="top relative mt-2 text-justify text-sm text-foreground/10">{id}</Text>
         </ScrollView>
 
-        <View className="border-t border-border bg-background">
+        <View className="border-t border-border bg-background pb-8">
           {replyingTo && (
             <View className="mx-2 mt-2 flex flex-row items-center justify-between rounded-lg bg-muted p-2">
               <Text className="text-sm text-foreground/70">Replying to {getReplyingToName()}</Text>
@@ -461,7 +508,7 @@ export default function ReportPage() {
               </Pressable>
             </View>
           )}
-          <View className="mx-2 flex flex-row items-center gap-2 pb-12 pt-2">
+          <View className="mx-2 flex flex-row items-center gap-2 pt-2">
             <TextInput
               ref={commentInputRef}
               className="flex-1 rounded-lg border border-border bg-background p-3 text-foreground"

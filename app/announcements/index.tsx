@@ -1,11 +1,12 @@
 import { useColorScheme } from 'nativewind';
-import { View, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
-import { Link, Stack } from 'expo-router';
+import { View, ActivityIndicator, ScrollView, RefreshControl, Pressable } from 'react-native';
+import { Link, router, Stack } from 'expo-router';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CirclePlus } from 'lucide-react-native';
 
 type Announcement = {
   id: string;
@@ -26,6 +27,43 @@ export default function Screen() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    const bootstrap = async () => {
+      setLoading(true);
+      const { data: userData } = await supabase.auth.getUser();
+
+      if (!alive) return;
+
+      const userId = userData.user?.id ?? null;
+
+      // Fetch user profile to check role
+      if (userId) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Error fetching user profile:', profileError);
+        } else {
+          setUserRole(profileData?.role ?? null);
+        }
+      }
+
+      setLoading(false);
+    };
+
+    bootstrap();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const fetchAnnouncements = async () => {
     const { data, error } = await supabase
@@ -63,6 +101,19 @@ export default function Screen() {
           title: 'Announcements',
           headerBlurEffect: 'systemMaterial',
           headerShown: true,
+          headerRight: () =>
+            userRole === 'admin' || userRole === 'staff' ? (
+              <Pressable
+                className="jcenter ml-1.5 flex items-center"
+                onPress={() => {
+                  router.push('/announcements/add');
+                }}>
+                <CirclePlus
+                  className="m-auto size-4"
+                  color={colorScheme === 'dark' ? 'white' : 'black'}
+                />
+              </Pressable>
+            ) : null,
         }}
       />
 
@@ -90,7 +141,7 @@ export default function Screen() {
 
                 return (
                   <Link href={`/announcements/${announcement.id}`} key={announcement.id}>
-                    <Card className="flex flex-col gap-1 p-3">
+                    <Card className="flex w-full flex-col gap-1 p-3">
                       <View className="flex flex-row items-start justify-between">
                         <Text className="flex-1 font-semibold">{announcement.title}</Text>
                         {isPinned && (
