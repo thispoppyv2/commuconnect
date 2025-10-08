@@ -12,10 +12,11 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import uuid from 'react-native-uuid';
 import { File } from 'expo-file-system';
+import { useFocusEffect } from 'expo-router';
 
 const LOGO = {
   light: require('@/assets/images/react-native-reusables-light.png'),
@@ -39,7 +40,7 @@ export default function Screen() {
   const [newAvatar, setNewAvatar] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
@@ -74,7 +75,7 @@ export default function Screen() {
     };
 
     fetchProfile();
-  }, []);
+  });
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -193,7 +194,7 @@ export default function Screen() {
     }
   };
 
-  if (loading) {
+  if (!firstName || !lastName) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator />

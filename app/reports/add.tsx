@@ -1,13 +1,14 @@
-import { Alert, ActivityIndicator, ScrollView, View, Platform, Image } from 'react-native';
+import { Alert, ActivityIndicator, ScrollView, View, Image } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Stack, useRouter } from 'expo-router';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
-import { Picker } from '@react-native-picker/picker';
+import PickerModal from 'react-native-picker-modal-view';
 import * as ImagePicker from 'expo-image-picker';
 import uuid from 'react-native-uuid';
 import { File } from 'expo-file-system';
+import { useColorScheme } from 'nativewind';
 
 // Assuming you have an 'Input' component defined, likely a re-export
 // or a file copied from the react-native-reusables project.
@@ -17,8 +18,11 @@ import { File } from 'expo-file-system';
 import { Input } from '@/components/ui/input';
 
 type Category = {
+  Id: number;
   id: number;
   name: string | null;
+  Name: string | null; // For picker modal
+  Value: string; // For picker modal
 };
 
 export default function AddReportScreen() {
@@ -29,9 +33,11 @@ export default function AddReportScreen() {
   const [location, setLocation] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string>('Choose a category');
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [images, setImages] = useState<string[]>([]);
+  const { colorScheme } = useColorScheme();
 
   useEffect(() => {
     let alive = true;
@@ -56,7 +62,15 @@ export default function AddReportScreen() {
         console.error('Error fetching categories:', categoryError);
         setCategories([]);
       } else {
-        setCategories((categoryData as Category[]) ?? []);
+        // Transform categories for picker modal
+        const transformedCategories = (categoryData as any[]).map((cat) => ({
+          Id: cat.id,
+          id: cat.id,
+          name: cat.name,
+          Name: cat.name ?? 'Uncategorized',
+          Value: String(cat.id),
+        }));
+        setCategories(transformedCategories);
       }
 
       setLoadingCategories(false);
@@ -271,34 +285,56 @@ export default function AddReportScreen() {
             ) : categories.length === 0 ? (
               <Text className="text-sm text-foreground/60">No categories available.</Text>
             ) : (
-              // Picker implementation from the previous request remains the same
-              <View
-                className="rounded-lg border border-border bg-background"
-                style={
-                  Platform.OS === 'android' && {
-                    paddingVertical: 0,
-                    height: 50,
-                    overflow: 'hidden',
-                  }
-                }>
-                <Picker
-                  selectedValue={selectedCategory}
-                  onValueChange={(itemValue, itemIndex) => setSelectedCategory(itemValue)}
-                  style={Platform.select({
-                    ios: { height: 200, color: 'hsl(var(--foreground))' },
-                    android: { color: 'hsl(var(--foreground))' },
-                  })}>
-                  <Picker.Item label="Choose a category" value={null} enabled={false} />
-
-                  {categories.map((category) => (
-                    <Picker.Item
-                      key={category.id}
-                      label={category.name ?? 'Uncategorized'}
-                      value={String(category.id)}
-                    />
-                  ))}
-                </Picker>
-              </View>
+              <PickerModal
+                items={categories}
+                selected={
+                  selectedCategory
+                    ? categories.find((cat) => cat.Value === selectedCategory)
+                    : undefined
+                }
+                onSelected={(item) => {
+                  setSelectedCategory(String(item.Value));
+                  setSelectedCategoryName(String(item.Name));
+                  return item;
+                }}
+                onClosed={() => {}}
+                onBackButtonPressed={() => {}}
+                onEndReached={() => {}}
+                showAlphabeticalIndex={false}
+                autoGenerateAlphabeticalIndex={false}
+                selectPlaceholderText="Choose a category"
+                searchPlaceholderText="Search categories..."
+                requireSelection={true}
+                autoSort={false}
+                renderListItem={(selected, item) => (
+                  <View
+                    style={{
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      backgroundColor: colorScheme === 'dark' ? '#0a0a0a' : '#ffffff',
+                      borderBottomWidth: 1,
+                      borderBottomColor: colorScheme === 'dark' ? '#262626' : '#e5e5e5',
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: colorScheme === 'dark' ? '#fafafa' : '#0a0a0a',
+                      }}>
+                      {item.Name}
+                    </Text>
+                  </View>
+                )}
+                renderSelectView={(disabled, selected, showModal) => (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onPress={() => !disabled && showModal()}>
+                    <Text className={selected ? 'text-foreground' : 'text-muted-foreground'}>
+                      {selectedCategoryName}
+                    </Text>
+                  </Button>
+                )}
+              />
             )}
           </View>
 

@@ -6,13 +6,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { Text } from '@/components/ui/text';
 import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
-import { Picker } from '@react-native-picker/picker';
+import PickerModal from 'react-native-picker-modal-view';
 
 type UserProfile = {
   id: string;
@@ -26,10 +27,16 @@ type UserProfile = {
   created_at: string;
 };
 
-const ROLE_OPTIONS = [
-  { label: 'User', value: 'user' },
-  { label: 'Staff', value: 'staff' },
-  { label: 'Admin', value: 'admin' },
+type RoleOption = {
+  Id: string;
+  Name: string;
+  Value: string;
+};
+
+const ROLE_OPTIONS: RoleOption[] = [
+  { Id: 'resident', Name: 'Resident', Value: 'resident' },
+  { Id: 'staff', Name: 'Staff', Value: 'staff' },
+  { Id: 'admin', Name: 'Admin', Value: 'admin' },
 ];
 
 export default function EditUserScreen() {
@@ -43,8 +50,9 @@ export default function EditUserScreen() {
   const [phone, setPhone] = useState('');
   const [location, setLocation] = useState('');
   const [role, setRole] = useState<string>('user');
+  const [roleName, setRoleName] = useState<string>('Resident');
   const [email, setEmail] = useState('');
-
+  const { colorScheme } = useColorScheme();
   useEffect(() => {
     const checkPermissionsAndFetch = async () => {
       setLoading(true);
@@ -86,6 +94,8 @@ export default function EditUserScreen() {
       setPhone(data.phone || '');
       setLocation(data.location || '');
       setRole(data.role || 'user');
+      const roleOption = ROLE_OPTIONS.find((r) => r.Value === (data.role || 'user'));
+      setRoleName(roleOption?.Name || 'Resident');
 
       // Fetch email from auth
       const { data: authData } = await supabase.auth.admin.getUserById(data.auth_user_id);
@@ -185,27 +195,26 @@ export default function EditUserScreen() {
 
             <View>
               <Text className="mb-2 text-sm font-semibold text-foreground/80">Role</Text>
-              <View
-                className="rounded-lg border border-border bg-background"
-                style={
-                  Platform.OS === 'android' && {
-                    paddingVertical: 0,
-                    height: 50,
-                    overflow: 'hidden',
-                  }
-                }>
-                <Picker
-                  selectedValue={role}
-                  onValueChange={(itemValue) => setRole(itemValue)}
-                  style={Platform.select({
-                    ios: { height: 150, color: 'hsl(var(--foreground))' },
-                    android: { color: 'hsl(var(--foreground))' },
-                  })}>
-                  {ROLE_OPTIONS.map((option) => (
-                    <Picker.Item key={option.value} label={option.label} value={option.value} />
-                  ))}
-                </Picker>
-              </View>
+              <PickerModal
+                items={ROLE_OPTIONS}
+                selected={ROLE_OPTIONS.find((r) => r.Value === role)}
+                onSelected={(item) => {
+                  setRole(String(item.Value));
+                  setRoleName(String(item.Name));
+                  return item;
+                }}
+                onClosed={() => {}}
+                onBackButtonPressed={() => {}}
+                onEndReached={() => {}}
+                renderSelectView={(disabled, selected, showModal) => (
+                  <Button
+                    variant="outline"
+                    onPress={() => !disabled && showModal()}
+                    className="justify-start">
+                    <Text>{roleName}</Text>
+                  </Button>
+                )}
+              />
             </View>
 
             <Button onPress={handleSubmit} disabled={submitting}>

@@ -1,17 +1,11 @@
 import { Link } from 'expo-router';
-import {
-  ActivityIndicator,
-  View,
-  type ImageStyle,
-  FlatList,
-  RefreshControl,
-  Image,
-} from 'react-native';
+import { ActivityIndicator, View, type ImageStyle, FlatList, RefreshControl } from 'react-native';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Image } from 'expo-image';
 
 type TimelineEntry = {
   id: string;
@@ -36,8 +30,6 @@ const IMAGE_STYLE: ImageStyle = {
   height: 76,
   width: 76,
   borderRadius: 8,
-  borderColor: '#ccc',
-  borderWidth: 1,
 };
 
 export function ReportList({
@@ -46,12 +38,14 @@ export function ReportList({
   searchQuery = '',
   showMyReports = false,
   currentUserProfileId,
+  filterUserId,
 }: {
   limit?: number;
   isScrollable?: boolean;
   searchQuery?: string;
   showMyReports?: boolean;
   currentUserProfileId?: string | null;
+  filterUserId?: string;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,6 +135,13 @@ export function ReportList({
       }
     }
 
+    // Filter by specific user
+    if (filterUserId) {
+      if (report.reporter_id !== filterUserId) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -189,13 +190,13 @@ export function ReportList({
       data={filteredReports}
       renderItem={({ item }) => renderReport(item)}
       keyExtractor={(item) => item.id}
-      contentContainerClassName={`flex w-full flex-col gap-1 ${isScrollable ? 'px-2' : ''}`}
+      contentContainerClassName={`flex w-full flex-col gap-1 top-2 ${isScrollable ? 'px-2' : ''}`}
       contentContainerStyle={{ paddingBottom: 200 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListEmptyComponent={
         <View className="p-4">
           <Text className="text-center text-foreground/70">
-            {searchQuery || showMyReports
+            {searchQuery || showMyReports || filterUserId
               ? 'No reports found matching your filters.'
               : 'No reports yet.'}
           </Text>

@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { supabase } from '@/lib/supabase';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Circle,
   CornerDownRight,
@@ -13,7 +13,7 @@ import {
   FilePenIcon,
 } from 'lucide-react-native';
 import { colorScheme } from 'nativewind';
-import { useEffect, useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -23,10 +23,11 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Keyboard,
-  Image,
+  RefreshControl,
 } from 'react-native';
 import { ImageZoom } from '@likashefqet/react-native-image-zoom';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 type Report = {
   id: string;
   title: string;
@@ -80,121 +81,132 @@ export default function ReportPage() {
   const [shouldFocusInput, setShouldFocusInput] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const commentsRef = useRef<View>(null);
   const commentInputRef = useRef<TextInput>(null);
 
-  useEffect(() => {
+  const fetchReport = async () => {
+    const [
+      { data: reportData, error: reportError },
+      { data: timelineData, error: timelineError },
+      { data: commentsData, error: commentsError },
+      { data: userData },
+    ] = await Promise.all([
+      supabase
+        .from('reports')
+        .select('*, user_profiles(first_name, last_name), categories(name), images')
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('report_timelines')
+        .select('id, status, description, created_at')
+        .eq('report_id', id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('comments')
+        .select('id, report_id, parent_comment_id, author_id, body, created_at')
+        .eq('report_id', id)
+        .order('created_at', { ascending: true }),
+      supabase.auth.getUser(),
+    ]);
+
+    // Set current user
+
+    // Fetch user role
+    if (userData.user?.id) {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('role , id')
+        .eq('auth_user_id', userData.user.id)
+        .single();
+      setUserRole(profileData?.role ?? null);
+      setCurrentUserId(profileData?.id ?? null);
+      console.log(profileData.role);
+    }
+
+    let timelineEntries: TimelineEntry[] = [];
+
+    if (timelineError) {
+      console.error('Error fetching timeline:', timelineError);
+    } else {
+      timelineEntries = (timelineData as TimelineEntry[]) ?? [];
+    }
+
+    if (commentsError) {
+      console.error('Error fetching comments:', commentsError);
+    } else {
+      const rawComments = (commentsData as Omit<Comment, 'user_profiles'>[]) ?? [];
+
+      // Fetch user profiles for all comment authors
+      const authorIds = Array.from(
+        new Set(rawComments.map((c) => c.author_id).filter(Boolean) as string[])
+      );
+
+      if (authorIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('user_profiles')
+          .select('id, first_name, last_name, profile_image')
+          .in('id', authorIds);
+
+        const profilesMap = new Map((profilesData ?? []).map((p) => [p.id, p]));
+
+        const commentsWithProfiles = rawComments.map((comment) => ({
+          ...comment,
+          user_profiles: comment.author_id ? (profilesMap.get(comment.author_id) ?? null) : null,
+        }));
+
+        setComments(commentsWithProfiles as Comment[]);
+      } else {
+        setComments(rawComments.map((c) => ({ ...c, user_profiles: null })) as Comment[]);
+      }
+    }
+
+    if (reportError) {
+      console.error('Error fetching report:', reportError);
+    } else {
+      const typedReport = reportData as Report;
+      const hasSubmittedEntry = timelineEntries.some((entry) => entry.status === 'submitted');
+
+      if (!hasSubmittedEntry) {
+        timelineEntries = [
+          ...timelineEntries,
+          {
+            id: `submitted-${typedReport.id}`,
+            status: 'submitted',
+            description: 'Report submitted.',
+            created_at: typedReport.created_at,
+          },
+        ];
+      }
+      timelineEntries.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setReport(typedReport);
+    }
+
+    setTimeline(timelineEntries);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchReport();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(() => {
     if (!id) return;
 
-    const fetchReport = async () => {
+    const loadReport = async () => {
       setLoading(true);
-      const [
-        { data: reportData, error: reportError },
-        { data: timelineData, error: timelineError },
-        { data: commentsData, error: commentsError },
-        { data: userData },
-      ] = await Promise.all([
-        supabase
-          .from('reports')
-          .select('*, user_profiles(first_name, last_name), categories(name), images')
-          .eq('id', id)
-          .single(),
-        supabase
-          .from('report_timelines')
-          .select('id, status, description, created_at')
-          .eq('report_id', id)
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('comments')
-          .select('id, report_id, parent_comment_id, author_id, body, created_at')
-          .eq('report_id', id)
-          .order('created_at', { ascending: true }),
-        supabase.auth.getUser(),
-      ]);
-
-      // Set current user
-
-      // Fetch user role
-      if (userData.user?.id) {
-        const { data: profileData } = await supabase
-          .from('user_profiles')
-          .select('role , id')
-          .eq('auth_user_id', userData.user.id)
-          .single();
-        setUserRole(profileData?.role ?? null);
-        setCurrentUserId(profileData?.id ?? null);
-        console.log(profileData.role);
-      }
-
-      let timelineEntries: TimelineEntry[] = [];
-
-      if (timelineError) {
-        console.error('Error fetching timeline:', timelineError);
-      } else {
-        timelineEntries = (timelineData as TimelineEntry[]) ?? [];
-      }
-
-      if (commentsError) {
-        console.error('Error fetching comments:', commentsError);
-      } else {
-        const rawComments = (commentsData as Omit<Comment, 'user_profiles'>[]) ?? [];
-
-        // Fetch user profiles for all comment authors
-        const authorIds = Array.from(
-          new Set(rawComments.map((c) => c.author_id).filter(Boolean) as string[])
-        );
-
-        if (authorIds.length > 0) {
-          const { data: profilesData } = await supabase
-            .from('user_profiles')
-            .select('id, first_name, last_name, profile_image')
-            .in('id', authorIds);
-
-          const profilesMap = new Map((profilesData ?? []).map((p) => [p.id, p]));
-
-          const commentsWithProfiles = rawComments.map((comment) => ({
-            ...comment,
-            user_profiles: comment.author_id ? (profilesMap.get(comment.author_id) ?? null) : null,
-          }));
-
-          setComments(commentsWithProfiles as Comment[]);
-        } else {
-          setComments(rawComments.map((c) => ({ ...c, user_profiles: null })) as Comment[]);
-        }
-      }
-
-      if (reportError) {
-        console.error('Error fetching report:', reportError);
-      } else {
-        const typedReport = reportData as Report;
-        const hasSubmittedEntry = timelineEntries.some((entry) => entry.status === 'submitted');
-
-        if (!hasSubmittedEntry) {
-          timelineEntries = [
-            ...timelineEntries,
-            {
-              id: `submitted-${typedReport.id}`,
-              status: 'submitted',
-              description: 'Report submitted.',
-              created_at: typedReport.created_at,
-            },
-          ];
-        }
-        timelineEntries.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
-        setReport(typedReport);
-      }
-
-      setTimeline(timelineEntries);
+      await fetchReport();
       setLoading(false);
     };
 
-    fetchReport();
-  }, [id]);
+    loadReport();
+  });
 
-  if (loading) {
+  if (loading && !report) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator />
@@ -216,7 +228,7 @@ export default function ReportPage() {
       : 'Anonymous';
 
   const isReporter = currentUserId && report.reporter_id === currentUserId;
-  const isAdmin = userRole === 'admin';
+  const isAdmin = userRole === 'admin' || userRole === 'staff';
 
   const organizeComments = () => {
     const topLevelComments = comments.filter((c) => !c.parent_comment_id);
@@ -361,30 +373,30 @@ export default function ReportPage() {
           title: report.title || 'Report Details',
           headerBackButtonDisplayMode: 'minimal',
           headerRight: () => {
-            return (
+            return isAdmin ? (
               <View className="w-maxs mx-1 flex flex-row items-center gap-2">
-                {isReporter ||
-                  (isAdmin && (
-                    <>
-                      <Pressable
-                        onPress={() => router.push(`/reports/${id}/edit`)}
-                        className="rounded-full p-1 hover:bg-muted/50 active:scale-95">
-                        <FilePenIcon color={colorScheme.get() === 'light' ? 'black' : 'white'} />
-                      </Pressable>
-                      <Pressable
-                        onPress={() => router.push(`/reports/${id}/add-timeline`)}
-                        className="rounded-full p-1 hover:bg-muted/50 active:scale-95">
-                        <ListPlus color={colorScheme.get() === 'light' ? 'black' : 'white'} />
-                      </Pressable>
-                    </>
-                  ))}
+                <>
+                  <Pressable
+                    onPress={() => router.push(`/reports/${id}/edit`)}
+                    className="rounded-full p-1 hover:bg-muted/50 active:scale-95">
+                    <FilePenIcon color={colorScheme.get() === 'light' ? 'black' : 'white'} />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => router.push(`/reports/${id}/add-timeline`)}
+                    className="rounded-full p-1 hover:bg-muted/50 active:scale-95">
+                    <ListPlus color={colorScheme.get() === 'light' ? 'black' : 'white'} />
+                  </Pressable>
+                </>
               </View>
-            );
+            ) : null;
           },
         }}
       />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={75}>
-        <ScrollView ref={scrollViewRef} className="mx-2">
+        <ScrollView
+          ref={scrollViewRef}
+          className="mx-2"
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
           <View className="flex-1">
             <View className="mt-2 flex w-full flex-row flex-wrap items-center justify-between">
               <CardTitle className="w-3/4 text-3xl">{report.title}</CardTitle>
@@ -418,10 +430,8 @@ export default function ReportPage() {
                         style={{
                           width: 100,
                           height: 100,
-                          backgroundColor: '#f0f0f0',
+
                           borderRadius: 8,
-                          borderColor: '#ccc',
-                          borderWidth: 1,
                         }}
                       />
                     </Pressable>

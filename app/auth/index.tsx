@@ -42,7 +42,7 @@ export default function Auth() {
     }
 
     Alert.alert('Success! You are now signed in.');
-    router.replace('/');
+    router.replace('/auth');
     setLoading(false);
   }
 
@@ -108,6 +108,13 @@ export default function Auth() {
           disabled={loading}
           onPress={() => router.push('/auth/sign-up')}>
           <Text>Create an Account</Text>
+        </Button>
+        <Button
+          className="mt-2"
+          variant="outline"
+          disabled={loading}
+          onPress={() => router.push('/auth/forgot-password')}>
+          <Text>Forgot Password?</Text>
         </Button>
       </View>
     </View>

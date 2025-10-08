@@ -11,48 +11,55 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
-import { Picker } from '@react-native-picker/picker';
+import PickerModal from 'react-native-picker-modal-view';
 import { Input } from '@/components/ui/input';
+import { useColorScheme } from 'nativewind';
 
-const STATUS_OPTIONS = [
-  { label: 'Submitted', value: 'submitted' },
-  { label: 'Open', value: 'open' },
-  { label: 'In Progress', value: 'in_progress' },
-  { label: 'Under Review', value: 'under_review' },
-  { label: 'Resolved', value: 'resolved' },
-  { label: 'Closed', value: 'closed' },
-  { label: 'Rejected', value: 'rejected' },
+type StatusOption = {
+  Id: string;
+  Name: string;
+  Value: string;
+};
+
+const STATUS_OPTIONS: StatusOption[] = [
+  { Id: 'submitted', Name: 'Submitted', Value: 'submitted' },
+  { Id: 'open', Name: 'Open', Value: 'open' },
+  { Id: 'in_progress', Name: 'In Progress', Value: 'in_progress' },
+  { Id: 'under_review', Name: 'Under Review', Value: 'under_review' },
+  { Id: 'resolved', Name: 'Resolved', Value: 'resolved' },
+  { Id: 'closed', Name: 'Closed', Value: 'closed' },
+  { Id: 'rejected', Name: 'Rejected', Value: 'rejected' },
 ];
 
 export default function AddTimelineScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [status, setStatus] = useState<string>('in_progress');
+  const [statusName, setStatusName] = useState<string>('In Progress');
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-
+  const { colorScheme } = useColorScheme();
   useEffect(() => {
     const checkPermissions = async () => {
       if (!id) return;
 
       const { data: userData } = await supabase.auth.getUser();
-      setCurrentUserId(userData.user?.id ?? null);
 
       if (userData.user?.id) {
         const { data: profileData } = await supabase
           .from('user_profiles')
-          .select('role')
+          .select('role, id')
           .eq('auth_user_id', userData.user.id)
           .single();
-
+        setCurrentUserId(profileData?.id ?? null);
         setUserRole(profileData?.role ?? null);
 
         // Only allow admins to add timeline entries
-        if (profileData?.role !== 'admin') {
-          Alert.alert('Access Denied', 'Only administrators can add timeline entries.');
+        if (profileData?.role !== 'admin' && profileData?.role !== 'staff') {
+          Alert.alert('Access Denied', 'Only administrators or staff can add timeline entries.');
           router.back();
         }
       }
@@ -143,27 +150,27 @@ export default function AddTimelineScreen() {
           <View className="gap-4">
             <View>
               <Text className="mb-2 text-sm font-semibold text-foreground/80">Status</Text>
-              <View
-                className="rounded-lg border border-border bg-background"
-                style={
-                  Platform.OS === 'android' && {
-                    paddingVertical: 0,
-                    height: 50,
-                    overflow: 'hidden',
-                  }
-                }>
-                <Picker
-                  selectedValue={status}
-                  onValueChange={(itemValue) => setStatus(itemValue)}
-                  style={Platform.select({
-                    ios: { height: 200, color: 'hsl(var(--foreground))' },
-                    android: { color: 'hsl(var(--foreground))' },
-                  })}>
-                  {STATUS_OPTIONS.map((option) => (
-                    <Picker.Item key={option.value} label={option.label} value={option.value} />
-                  ))}
-                </Picker>
-              </View>
+              <PickerModal
+                items={STATUS_OPTIONS}
+                selected={STATUS_OPTIONS.find((s) => s.Value === status)}
+                onSelected={(item) => {
+                  setStatus(String(item.Value));
+                  setStatusName(String(item.Name));
+                  return item;
+                }}
+                autoSort={true}
+                onClosed={() => {}}
+                onBackButtonPressed={() => {}}
+                onEndReached={() => {}}
+                renderSelectView={(disabled, selected, showModal) => (
+                  <Button
+                    variant="outline"
+                    onPress={() => !disabled && showModal()}
+                    className="justify-start">
+                    <Text>{statusName}</Text>
+                  </Button>
+                )}
+              />
             </View>
 
             <View>

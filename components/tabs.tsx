@@ -34,7 +34,8 @@ export function TabLayout() {
       tintColor={tintColor2}
       backgroundColor={backgroundColor}
       shadowColor={iconColor}
-      minimizeBehavior="onScrollDown">
+      minimizeBehavior="onScrollDown"
+      labelVisibilityMode="selected">
       <NativeTabs.Trigger
         options={{
           backgroundColor: backgroundColor,
@@ -51,6 +52,7 @@ export function TabLayout() {
           backgroundColor: backgroundColor,
         }}
         name="reports">
+        <NativeTabs.Trigger.TabBar />
         <Label>Reports</Label>
         {Platform.select({
           ios: <Icon sf="doc.text" />,

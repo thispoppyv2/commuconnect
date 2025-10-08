@@ -6,6 +6,7 @@ import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { MoonIcon, Smartphone, SunIcon } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from 'react';
 const LOGO = {
   light: require('@/assets/images/react-native-reusables-light.png'),
   dark: require('@/assets/images/react-native-reusables-dark.png'),
@@ -18,6 +19,27 @@ const IMAGE_STYLE: ImageStyle = {
 
 export default function Screen() {
   const { colorScheme, toggleColorScheme, setColorScheme } = useColorScheme();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.id) {
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('auth_user_id', user.id)
+          .single();
+
+        setUserRole(profileData?.role ?? null);
+      }
+    };
+
+    fetchUserRole();
+  }, []);
 
   return (
     <>
@@ -52,22 +74,26 @@ export default function Screen() {
             </Button>
           </View>
 
-          <Button
-            variant="secondary"
-            className="m-auto my-1 mt-5 w-full"
-            onPress={() => {
-              router.push('/settings/category-mng');
-            }}>
-            <Text>Category Management</Text>
-          </Button>
-          <Button
-            variant="secondary"
-            className="m-auto my-1 mt-5 w-full"
-            onPress={() => {
-              router.push('/settings/user-mng');
-            }}>
-            <Text>User Management</Text>
-          </Button>
+          {userRole === 'admin' && (
+            <>
+              <Button
+                variant="secondary"
+                className="m-auto my-1 mt-5 w-full"
+                onPress={() => {
+                  router.push('/settings/category-mng');
+                }}>
+                <Text>Category Management</Text>
+              </Button>
+              <Button
+                variant="secondary"
+                className="m-auto my-1 mt-5 w-full"
+                onPress={() => {
+                  router.push('/settings/user-mng');
+                }}>
+                <Text>User Management</Text>
+              </Button>
+            </>
+          )}
           <Button
             className="mt-4 w-full"
             onPress={() => {

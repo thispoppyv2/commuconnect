@@ -12,15 +12,19 @@ import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
-import { Picker } from '@react-native-picker/picker';
+import PickerModal from 'react-native-picker-modal-view';
 import * as ImagePicker from 'expo-image-picker';
 import uuid from 'react-native-uuid';
 import { File } from 'expo-file-system';
 import { Input } from '@/components/ui/input';
+import { useColorScheme } from 'nativewind';
 
 type Category = {
+  Id: number;
   id: number;
   name: string | null;
+  Name: string;
+  Value: string;
 };
 
 type Report = {
@@ -41,6 +45,7 @@ export default function EditReportScreen() {
   const [location, setLocation] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryName, setCategoryName] = useState<string>('Choose a category');
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +53,7 @@ export default function EditReportScreen() {
   const [existingImages, setExistingImages] = useState<string[]>([]);
   const [reporterId, setReporterId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-
+  const { colorScheme } = useColorScheme();
   useEffect(() => {
     let alive = true;
 
@@ -73,7 +78,14 @@ export default function EditReportScreen() {
         console.error('Error fetching categories:', categoryError);
         setCategories([]);
       } else {
-        setCategories((categoryData as Category[]) ?? []);
+        const transformedCategories: Category[] = (categoryData || []).map((cat: any) => ({
+          Id: cat.id,
+          id: cat.id,
+          name: cat.name,
+          Name: cat.name ?? 'Uncategorized',
+          Value: String(cat.id),
+        }));
+        setCategories(transformedCategories);
       }
 
       if (reportError) {
@@ -85,6 +97,10 @@ export default function EditReportScreen() {
         setTitle(report.title);
         setDescription(report.description || '');
         setSelectedCategory(report.category?.toString() || null);
+        if (report.category) {
+          const cat = categoryData?.find((c: any) => c.id === report.category);
+          setCategoryName(cat?.name ?? 'Choose a category');
+        }
         setExistingImages(report.images || []);
         setReporterId(report.reporter_id);
       }
@@ -287,33 +303,26 @@ export default function EditReportScreen() {
               ) : categories.length === 0 ? (
                 <Text className="text-sm text-foreground/60">No categories available.</Text>
               ) : (
-                <View
-                  className="rounded-lg border border-border bg-background"
-                  style={
-                    Platform.OS === 'android' && {
-                      paddingVertical: 0,
-                      height: 50,
-                      overflow: 'hidden',
-                    }
-                  }>
-                  <Picker
-                    selectedValue={selectedCategory}
-                    onValueChange={(itemValue, itemIndex) => setSelectedCategory(itemValue)}
-                    style={Platform.select({
-                      ios: { height: 200, color: 'hsl(var(--foreground))' },
-                      android: { color: 'hsl(var(--foreground))' },
-                    })}>
-                    <Picker.Item label="Choose a category" value={null} enabled={false} />
-
-                    {categories.map((category) => (
-                      <Picker.Item
-                        key={category.id}
-                        label={category.name ?? 'Uncategorized'}
-                        value={String(category.id)}
-                      />
-                    ))}
-                  </Picker>
-                </View>
+                <PickerModal
+                  items={categories}
+                  selected={categories.find((c) => c.Value === selectedCategory)}
+                  onSelected={(item) => {
+                    setSelectedCategory(String(item.Value));
+                    setCategoryName(String(item.Name));
+                    return item;
+                  }}
+                  onClosed={() => {}}
+                  onBackButtonPressed={() => {}}
+                  onEndReached={() => {}}
+                  renderSelectView={(disabled, selected, showModal) => (
+                    <Button
+                      variant="outline"
+                      onPress={() => !disabled && showModal()}
+                      className="justify-start">
+                      <Text>{categoryName}</Text>
+                    </Button>
+                  )}
+                />
               )}
             </View>
 

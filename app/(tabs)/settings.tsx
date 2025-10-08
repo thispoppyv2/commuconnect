@@ -47,13 +47,13 @@ export default function Screen() {
           .single();
 
         if (error) {
-          router.replace('/');
+          router.replace('/auth');
         } else {
           setProfile(profileData);
         }
       } else {
         setProfile(null);
-        router.replace('/');
+        router.replace('/auth');
       }
     };
     fetchUserAndProfile();

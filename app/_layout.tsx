@@ -16,7 +16,6 @@ export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
-
 export default function Layout() {
   const { colorScheme } = useColorScheme();
   const pathname = usePathname();
